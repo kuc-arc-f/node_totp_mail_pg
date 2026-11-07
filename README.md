@@ -19,6 +19,9 @@ node.js , authrize TOTP Mail PostgreSQL
 * Linux
 
 ***
+* Table: schema.sql
+
+***
 
 * .env
 ```
