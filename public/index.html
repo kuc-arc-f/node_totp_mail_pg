@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>メール OTP ログイン</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f5f7; display: flex; justify-content: center; padding: 60px 16px; }
+    .card { background: #fff; padding: 28px; border-radius: 12px; width: 100%; max-width: 380px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+    h1 { font-size: 20px; margin: 0 0 18px; }
+    input, button { width: 100%; padding: 11px; font-size: 16px; margin-top: 10px; box-sizing: border-box; border-radius: 8px; }
+    input { border: 1px solid #ccc; }
+    button { background: #2563eb; color: #fff; border: 0; cursor: pointer; }
+    button.sub { background: #e5e7eb; color: #111; }
+    #msg { margin-top: 14px; font-size: 14px; min-height: 20px; }
+    .err { color: #dc2626; } .ok { color: #16a34a; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>ログイン</h1>
+
+    <div id="step1">
+      <input id="email" type="email" placeholder="メールアドレス" autocomplete="email">
+      <button id="sendBtn">ワンタイムパスワードを送信</button>
+    </div>
+
+    <div id="step2" class="hidden">
+      <input id="otp" inputmode="numeric" maxlength="6" placeholder="6桁のコード" autocomplete="one-time-code">
+      <button id="verifyBtn">ログイン</button>
+      <button id="resendBtn" class="sub">コードを再送</button>
+    </div>
+
+    <div id="step3" class="hidden">
+      <p id="who"></p>
+      <button id="logoutBtn" class="sub">ログアウト</button>
+    </div>
+
+    <div id="msg"></div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const show = (id) => ['step1','step2','step3'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+const say = (text, ok) => { $('msg').textContent = text; $('msg').className = ok ? 'ok' : 'err'; };
+
+async function post(url, body) {
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'エラーが発生しました');
+  return data;
+}
+
+async function sendOtp() {
+  try {
+    const d = await post('/auth/request-otp', { email: $('email').value });
+    say(d.message, true); show('step2'); $('otp').focus();
+  } catch (e) { say(e.message); }
+}
+
+$('sendBtn').onclick = sendOtp;
+$('resendBtn').onclick = sendOtp;
+
+$('verifyBtn').onclick = async () => {
+  try {
+    const d = await post('/auth/verify-otp', { email: $('email').value, otp: $('otp').value });
+    say(d.message, true); $('who').textContent = d.user.email + ' でログイン中'; show('step3');
+  } catch (e) { say(e.message); }
+};
+
+$('logoutBtn').onclick = async () => {
+  await post('/auth/logout'); say('ログアウトしました。', true); $('otp').value = ''; show('step1');
+};
+
+// ページ読み込み時にログイン状態を確認
+fetch('/api/me').then(r => r.ok ? r.json() : null).then(u => {
+  if (u) { $('who').textContent = u.email + ' でログイン中'; show('step3'); }
+});
+</script>
+</body>
+</html>
